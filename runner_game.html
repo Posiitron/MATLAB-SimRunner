@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MATLAB SimRunner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #001f3f;
+            /* MATLAB Dark Blue Background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #E0E0E0;
+            /* MATLAB Light Gray Text */
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: #2c3e50;
+            /* MATLAB Editor-like Dark Gray/Blue */
+            border: 2px solid #00A86B;
+            /* MATLAB Green Accent */
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 25px rgba(0, 168, 107, 0.3);
+        }
+
+        #gameCanvas {
+            display: block;
+            background: transparent;
+        }
+
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.95);
+            /* Semi-transparent overlay, editor-like */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            z-index: 10;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .screen-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .screen-overlay h1,
+        .screen-overlay h2 {
+            color: #00A86B;
+            /* MATLAB Green */
+            text-shadow: 0 0 8px rgba(0, 168, 107, 0.5);
+            margin-bottom: 15px;
+        }
+
+        .screen-overlay p {
+            margin-bottom: 10px;
+            font-size: 1em;
+            /* Using em for better scalability */
+            color: #BDC3C7;
+            /* MATLAB Lighter Gray */
+            line-height: 1.6;
+        }
+
+        .command-prompt-text {
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #E0E0E0;
+            /* MATLAB Command Window Text Color */
+            text-align: left;
+            width: 80%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .command-prompt-text .prompt {
+            color: #00A86B;
+            /* MATLAB Green for prompt */
+        }
+
+        .command-prompt-text .comment {
+            color: #2ECC71;
+            /* Lighter green for comments */
+        }
+
+        .command-prompt-text .error {
+            color: #E74C3C;
+            /* MATLAB Red for errors */
+        }
+
+        .command-prompt-text p {
+            margin: 3px 0;
+            font-size: 0.9em;
+        }
+
+
+        .screen-overlay p.error-message {
+            color: #E74C3C;
+            /* MATLAB Red for errors */
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        button.game-button {
+            padding: 12px 25px;
+            font-size: 1em;
+            background: #00739D;
+            /* MATLAB Blue Button */
+            color: #FFFFFF;
+            border: 1px solid #00A86B;
+            /* MATLAB Green border */
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        button.game-button:hover {
+            background: #00A86B;
+            /* MATLAB Green on hover */
+            color: #2c3e50;
+            /* Dark text on hover */
+        }
+
+        button.game-button:disabled {
+            background: #566573;
+            color: #95a5a6;
+            cursor: not-allowed;
+            border-color: #566573;
+        }
+
+        #scoreDisplay {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: #00A86B;
+            /* MATLAB Green */
+            font-size: 1.4em;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 168, 107, 0.4);
+            z-index: 5;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            color: #BDC3C7;
+            /* MATLAB Lighter Gray */
+            font-size: 0.9em;
+            z-index: 5;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="scoreDisplay">Score: 0</div>
+        <div id="instructions">Press SPACE or Click to Jump</div>
+
+        <div id="startScreen" class="screen-overlay active">
+            <!-- Option 4 Trailer Text Integration -->
+            <div class="command-prompt-text">
+                <p><span class="prompt">>></span> Initializing system parameters...</p>
+                <p><span class="prompt">>></span> Loading dynamic models... <span class="comment">% They're out to get
+                        you!</span></p>
+                <p><span class="prompt">>></span> Plotting trajectory... <span class="error">% of your DOOM!</span></p>
+                <p style="margin-top:15px;">Forget debugging code. It's time to debug YOURSELF!</p>
+                <p>Navigate the treacherous landscape of applied mathematics!</p>
+                <p>Where every 'X' is a pole of despair, and every 'O' a zero chance of stopping!</p>
+            </div>
+            <h1 style="margin-top: 10px;">MATLAB SimRunner</h1>
+            <p id="startScreenUserMessage" style="min-height: 1.2em;"></p> <!-- For loading/error messages -->
+            <button class="game-button" id="startButton"
+                onclick="initGame()">run_simulation('player_dynamics.m')</button>
+        </div>
+
+        <div id="gameOverScreen" class="screen-overlay">
+            <h2>Simulation Terminated!</h2>
+            <p id="finalScoreDisplay">Final Score: 0</p>
+            <p class="error-message" style="margin-top:5px;">Error on line 1: Player.exe has stopped responding (to
+                reason).</p>
+            <button class="game-button" onclick="restartGame()">Re-initialize</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplayElement = document.getElementById('scoreDisplay');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startScreen = document.getElementById('startScreen');
+        const startScreenUserMessageElement = document.getElementById('startScreenUserMessage');
+        const startButton = document.getElementById('startButton');
+        const finalScoreDisplayElement = document.getElementById('finalScoreDisplay');
+
+        // --- Game Constants ---
+        const GRAVITY = 0.7;
+        const JUMP_STRENGTH = -16;
+        const CHARACTER_WIDTH = 50;
+        const CHARACTER_HEIGHT = 50;
+        const CHARACTER_START_X = 100;
+        const GROUND_Y = canvas.height - 80;
+        const CHARACTER_START_Y = GROUND_Y - CHARACTER_HEIGHT;
+        const INITIAL_GAME_SPEED = 3;
+        const OBSTACLE_WIDTH = 25;
+        const OBSTACLE_HEIGHT = 40;
+        const OBSTACLE_BASE_Y = GROUND_Y - OBSTACLE_HEIGHT;
+        const CHARACTER_ANIMATION_SPEED = 0.15;
+
+        const GameStates = {
+            LOADING: 'LOADING',
+            START_SCREEN: 'START_SCREEN',
+            PLAYING: 'PLAYING',
+            GAME_OVER: 'GAME_OVER'
+        };
+        let currentGameState = GameStates.LOADING;
+        let score = 0;
+        let gameSpeed = INITIAL_GAME_SPEED;
+        let lastTime = 0;
+
+        let character = {
+            x: CHARACTER_START_X, y: CHARACTER_START_Y, width: CHARACTER_WIDTH, height: CHARACTER_HEIGHT,
+            velocityY: 0, isJumping: false, currentFrameIndex: 0, animationTimer: 0, frames: []
+        };
+
+        const characterFramePaths = [
+           "assets/character/run0.png",
+            "assets/character/run1.png",
+            "assets/character/run2.png",
+            "assets/character/run3.png",
+            "assets/character/run4.png",
+            "assets/character/run5.png",
+            "assets/character/run6.png",
+            "assets/character/run7.png",
+            "assets/character/run8.png",
+            "assets/character/run9.png",
+            "assets/character/run10.png",
+            "assets/character/run11.png",
+            "assets/character/run12.png",
+        ];
+
+        async function loadAssets() {
+            setGameState(GameStates.LOADING);
+            startScreenUserMessageElement.textContent = "% Loading assets...";
+            startScreenUserMessageElement.style.color = '#2ECC71'; // Comment color
+
+            try {
+                await loadCharacterFramesFromPaths(characterFramePaths);
+                if (character.frames.length === 0) {
+                    throw new Error("No character frames loaded. Check paths and 'assets/character/' folder.");
+                }
+                startScreenUserMessageElement.textContent = "% System Ready.";
+                setTimeout(() => { // Keep "System Ready" for a bit
+                    if (currentGameState === GameStates.LOADING) { // only clear if still in loading
+                        startScreenUserMessageElement.textContent = "";
+                    }
+                }, 1500);
+                setGameState(GameStates.START_SCREEN);
+            } catch (error) {
+                console.error("Asset Loading Error:", error);
+                startScreenUserMessageElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                setGameState(GameStates.START_SCREEN); // Still go to start screen but button will be disabled by setGameState
+                startButton.disabled = true; // Explicitly disable
+            }
+        }
+
+        function loadCharacterFramesFromPaths(paths) {
+            return new Promise((resolve, reject) => {
+                character.frames = [];
+                if (!paths || paths.length === 0) {
+                    console.warn("No character frame paths. Using placeholder.");
+                    const c = document.createElement('canvas'); c.width = CHARACTER_WIDTH; c.height = CHARACTER_HEIGHT;
+                    const cCtx = c.getContext('2d'); cCtx.fillStyle = '#00A86B'; cCtx.fillRect(0, 0, c.width, c.height);
+                    cCtx.fillStyle = '#2c3e50'; cCtx.font = "bold 20px Consolas"; cCtx.textAlign = "center"; cCtx.fillText("C", c.width / 2, c.height / 2 + 7);
+                    character.frames.push(c);
+                    resolve(); return;
+                }
+                let loadedCount = 0, hasError = false;
+                paths.forEach((path, index) => {
+                    const img = new Image();
+                    img.onload = () => { if (hasError) return; character.frames[index] = img; loadedCount++; console.log(`Loaded: ${path}`); if (loadedCount === paths.length) resolve(); };
+                    img.onerror = () => { if (hasError) return; hasError = true; console.error(`Error loading: ${path}`); reject(new Error(`Failed to load: ${path}`)); };
+                    img.src = path;
+                });
+            });
+        }
+
+        let obstacles = [], obstacleSpawnTimer = 0, obstacleSpawnInterval = 100;
+        let bgEquations = [], bgBlockDiagrams = [];
+        const mathEquationsList = [
+            'G(s)=K/(s²+2ζωₙs+ωₙ²)', 'H(s)=1/(τs+1)', 'T(s)=G(s)/(1+G(s)H(s))', 'ess=1/(1+Kₚ)',
+            'Kₚ=lim_{s→0}G(s)H(s)', 'PM=180°-∠G(jωc)', 'GM=-20log|G(jωₚ)|', 'ωₙ=√(K/J)',
+            'ζ=c/(2√(KJ))', 'Mp=e^(-πζ/√(1-ζ²))', 'ts≈4/(ζωₙ)', 'dx/dt=Ax+Bu', 'y=Cx+Du',
+            'det(sI-A)=0', 'K=acker(A,B,p)'
+        ];
+
+        function initBackgroundElements() {
+            bgEquations = []; bgBlockDiagrams = [];
+            for (let i = 0; i < 12; i++) bgEquations.push({ text: mathEquationsList[Math.floor(Math.random() * mathEquationsList.length)], x: Math.random() * canvas.width, y: Math.random() * (canvas.height - 100) + 50, speed: Math.random() * (i < 6 ? 0.2 : 0.4) + (i < 6 ? 0.1 : 0.2), opacity: Math.random() * (i < 6 ? 0.1 : 0.15) + (i < 6 ? 0.03 : 0.05), size: Math.random() * 4 + (i < 6 ? 10 : 12), layer: (i < 6 ? 1 : 2) });
+            for (let i = 0; i < 5; i++) bgBlockDiagrams.push({ x: Math.random() * canvas.width, y: Math.random() * (canvas.height - 150) + 100, speed: Math.random() * 0.3 + 0.15, type: Math.random() > 0.5 ? 'block' : 'sum', size: Math.random() * 15 + 10, opacity: Math.random() * 0.15 + 0.05 });
+        }
+
+        function drawBackground(deltaTime) {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height); grad.addColorStop(0, '#001f3f'); grad.addColorStop(0.7, '#2c3e50'); grad.addColorStop(1, '#1e2b38');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = 'rgba(0,168,107,0.07)'; ctx.lineWidth = 0.5; // MATLAB Green grid, more subtle
+            for (let x = 0; x < canvas.width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+            for (let y = 0; y < canvas.height; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+            const effSpd = gameSpeed / INITIAL_GAME_SPEED, sDT = deltaTime * 60;
+            bgEquations.forEach(eq => { eq.x -= eq.speed * effSpd * (eq.layer === 1 ? 0.5 : 1) * sDT; if (eq.x < -ctx.measureText(eq.text).width - 20) { eq.x = canvas.width + Math.random() * 50; eq.y = Math.random() * (canvas.height - 100) + 50; eq.text = mathEquationsList[Math.floor(Math.random() * mathEquationsList.length)]; } ctx.fillStyle = `rgba(0,168,107,${eq.opacity})`; ctx.font = `${eq.size}px Consolas`; ctx.fillText(eq.text, eq.x, eq.y); });
+            bgBlockDiagrams.forEach(b => { b.x -= b.speed * effSpd * sDT; if (b.x + b.size * 2 < 0) { b.x = canvas.width + b.size; b.y = Math.random() * (canvas.height - 150) + 100; } ctx.strokeStyle = `rgba(189,195,199,${b.opacity * 1.5})`; ctx.fillStyle = `rgba(44,62,80,${b.opacity * 0.5})`; ctx.lineWidth = 1; if (b.type === 'block') { ctx.fillRect(b.x, b.y, b.size * 1.5, b.size); ctx.strokeRect(b.x, b.y, b.size * 1.5, b.size); ctx.fillStyle = `rgba(0,168,107,${b.opacity * 2})`; ctx.font = `${b.size * 0.6}px Consolas`; ctx.fillText('G(s)', b.x + b.size * 0.1, b.y + b.size * 0.65); } else { ctx.beginPath(); ctx.arc(b.x + b.size / 2, b.y + b.size / 2, b.size / 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = `rgba(0,168,107,${b.opacity * 2})`; const s = b.size / 2, cX = b.x + s, cY = b.y + s; ctx.beginPath(); ctx.moveTo(cX - s * 0.3, cY); ctx.lineTo(cX + s * 0.3, cY); ctx.moveTo(cX, cY - s * 0.3); ctx.lineTo(cX, cY + s * 0.3); ctx.stroke(); } });
+        }
+
+        function drawGround() { ctx.fillStyle = '#1e2b38'; ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y); ctx.strokeStyle = '#00A86B'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(canvas.width, GROUND_Y); ctx.stroke(); }
+
+        function updateCharacter(deltaTime) { const sDT = deltaTime * 60; if (!character.isJumping) { character.animationTimer += deltaTime; if (character.animationTimer >= CHARACTER_ANIMATION_SPEED) { character.currentFrameIndex = (character.currentFrameIndex + 1) % character.frames.length; character.animationTimer = 0; } } if (character.isJumping) { character.y += character.velocityY * sDT; character.velocityY += GRAVITY * sDT; if (character.y >= CHARACTER_START_Y) { character.y = CHARACTER_START_Y; character.isJumping = false; character.velocityY = 0; } } }
+        function drawCharacter() { if (character.frames.length > 0 && character.frames[character.currentFrameIndex] && character.frames[character.currentFrameIndex].width > 0) { ctx.drawImage(character.frames[character.currentFrameIndex], character.x, character.y, character.width, character.height); } else if (character.frames.length > 0 && character.frames[0] && character.frames[0].width > 0) { ctx.drawImage(character.frames[0], character.x, character.y, character.width, character.height); } else { ctx.fillStyle = '#00A86B'; ctx.fillRect(character.x, character.y, character.width, character.height); } }
+        function jump() { if (!character.isJumping && currentGameState === GameStates.PLAYING) { character.isJumping = true; character.velocityY = JUMP_STRENGTH; } }
+
+        function createObstacle() { const types = ['pole', 'zero', 'block'], t = types[Math.floor(Math.random() * types.length)]; obstacles.push({ x: canvas.width, y: OBSTACLE_BASE_Y + (t === 'pole' || t === 'zero' ? 5 : 0), width: (t === 'block' ? OBSTACLE_WIDTH * 1.2 : OBSTACLE_WIDTH), height: (t === 'block' ? OBSTACLE_HEIGHT * 0.8 : OBSTACLE_HEIGHT), type: t }); }
+        function updateObstacles(deltaTime) { const sDT = deltaTime * 60; obstacleSpawnTimer += sDT; if (obstacleSpawnTimer > obstacleSpawnInterval) { createObstacle(); obstacleSpawnTimer = 0; obstacleSpawnInterval = Math.max(40, obstacleSpawnInterval * 0.99); } for (let i = obstacles.length - 1; i >= 0; i--) { const o = obstacles[i]; o.x -= gameSpeed * sDT; if (o.x + o.width < 0) { obstacles.splice(i, 1); score += 10; if (score > 0 && score % 100 === 0) { gameSpeed += 0.2; console.log("Speed:", gameSpeed.toFixed(1)); } } } }
+        function drawObstacles() { obstacles.forEach(o => { ctx.lineWidth = 2; const pzCol = '#FF69B4', bCol = '#FFA500'; if (o.type === 'pole') { ctx.strokeStyle = pzCol; ctx.beginPath(); const s = o.height * 0.4, cX = o.x + o.width / 2, cY = o.y + o.height / 2; ctx.moveTo(cX - s, cY - s); ctx.lineTo(cX + s, cY + s); ctx.moveTo(cX + s, cY - s); ctx.lineTo(cX - s, cY + s); ctx.stroke(); } else if (o.type === 'zero') { ctx.strokeStyle = pzCol; ctx.beginPath(); ctx.arc(o.x + o.width / 2, o.y + o.height / 2, o.height * 0.4, 0, Math.PI * 2); ctx.stroke(); } else { ctx.strokeStyle = bCol; ctx.fillStyle = 'rgba(255,165,0,0.1)'; ctx.fillRect(o.x, o.y, o.width, o.height); ctx.strokeRect(o.x, o.y, o.width, o.height); ctx.fillStyle = '#E0E0E0'; ctx.font = `${o.height * 0.4}px Consolas`; ctx.textAlign = 'center'; ctx.fillText('H(s)', o.x + o.width / 2, o.y + o.height * 0.65); ctx.textAlign = 'left'; } }); }
+        function checkCollisions() { obstacles.forEach(o => { if (character.x < o.x + o.width && character.x + character.width > o.x && character.y < o.y + o.height && character.y + character.height > o.y) setGameState(GameStates.GAME_OVER); }); }
+
+        function setGameState(newState) {
+            currentGameState = newState;
+            startScreen.classList.remove('active'); gameOverScreen.classList.remove('active');
+            startButton.disabled = (newState === GameStates.LOADING || newState === GameStates.PLAYING);
+
+            if (newState === GameStates.LOADING) startScreen.classList.add('active');
+            else if (newState === GameStates.START_SCREEN) startScreen.classList.add('active');
+            else if (newState === GameStates.GAME_OVER) { finalScoreDisplayElement.textContent = `Final Score: ${score}`; gameOverScreen.classList.add('active'); }
+        }
+        function resetGameVariables() { score = 0; gameSpeed = INITIAL_GAME_SPEED; obstacleSpawnInterval = 100; obstacles = []; obstacleSpawnTimer = 0; character.x = CHARACTER_START_X; character.y = CHARACTER_START_Y; character.velocityY = 0; character.isJumping = false; character.currentFrameIndex = 0; character.animationTimer = 0; lastTime = 0; initBackgroundElements(); }
+        function initGame() { if (currentGameState === GameStates.PLAYING || currentGameState === GameStates.LOADING) return; resetGameVariables(); setGameState(GameStates.PLAYING); requestAnimationFrame(gameLoop); }
+        function restartGame() { initGame(); }
+
+        function gameLoop(currentTime) {
+            if (currentGameState !== GameStates.PLAYING) { lastTime = 0; return; }
+            if (!lastTime) lastTime = currentTime; const deltaTime = (currentTime - lastTime) / 1000; lastTime = currentTime;
+            updateCharacter(deltaTime); updateObstacles(deltaTime); checkCollisions();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground(deltaTime); drawGround(); drawCharacter(); drawObstacles();
+            scoreDisplayElement.textContent = `Score: ${score}`;
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); if (currentGameState === GameStates.PLAYING) jump(); else if (currentGameState === GameStates.START_SCREEN && !startButton.disabled) initGame(); else if (currentGameState === GameStates.GAME_OVER) restartGame(); } });
+        canvas.addEventListener('click', () => { if (currentGameState === GameStates.PLAYING) jump(); else if (currentGameState === GameStates.START_SCREEN && !startButton.disabled) initGame(); else if (currentGameState === GameStates.GAME_OVER) restartGame(); });
+        startButton.addEventListener('click', () => { // Ensure button click works if not disabled
+            if (currentGameState === GameStates.START_SCREEN && !startButton.disabled) {
+                initGame();
+            }
+        });
+
+        loadAssets(); // Start asset loading process immediately
+    </script>
+</body>
+
+</html>
